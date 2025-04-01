@@ -1,0 +1,21 @@
+{
+    "manifest_version": 3,
+    "name": "GitLens",
+    "version": "1.0",
+    "description": "Auto-generates concise summaries of repo structure, key functionalities, and dependencies on GitHub repositories.",
+    "permissions": ["activeTab", "scripting", "storage"],
+    "action": {
+      "default_popup": "pages/popup.html"
+    },
+    "background": {
+      "service_worker": "scripts/background.js"
+    },
+    "content_scripts": [
+      {
+        "matches": ["https://github.com/*/*"],
+        "js": ["scripts/content.js","scripts/injectsumm.js"],
+        "run_at": "document_idle"
+      }
+    ]
+  }
+  
