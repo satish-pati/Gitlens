@@ -189,7 +189,16 @@ def get_pr_data(repo_url, max_prs=5):
                 continue
 
             pr_soup = BeautifulSoup(pr_response.text, "html.parser")
-            merge_status = "Merged" if pr_soup.select_one(".State--merged") else state
+             status_elem = pr_soup.select_one(".State")
+            if status_elem:
+                status_class=status_elem.get("class", [])
+                print("Status Class:", status_class)
+                if "State--closed" in status_class:
+                    merge_status = "Closed" 
+                elif "State--open" in status_class:
+                    merge_status = "Open"   
+                else:
+                    merge_status = "Unknown"
 
             pr_data_list.append({
                 "Number": clean_pr_number(pr_number),  
