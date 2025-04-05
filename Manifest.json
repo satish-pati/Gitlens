@@ -1,21 +1,50 @@
 {
-    "manifest_version": 3,
-    "name": "GitLens",
-    "version": "1.0",
-    "description": "Auto-generates concise summaries of repo structure, key functionalities, and dependencies on GitHub repositories.",
-    "permissions": ["activeTab", "scripting", "storage"],
-    "action": {
-      "default_popup": "pages/popup.html"
-    },
-    "background": {
-      "service_worker": "scripts/background.js"
-    },
-    "content_scripts": [
-      {
-        "matches": ["https://github.com/*/*"],
-        "js": ["scripts/content.js","scripts/injectsumm.js","scripts/pr_analysis.js"],
-        "run_at": "document_idle"
-      }
-    ]
-  }
-  
+  "manifest_version": 3,
+  "name": "GitLens",
+  "version": "1.0",
+  "description": "Auto-generates concise summaries of repo structure, key functionalities, and dependencies on GitHub repositories.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "http://localhost:5000/","http://127.0.0.1:5000/"
+
+  ],
+  "web_accessible_resources": [{
+    "resources": [
+      "pages/*",
+      "styles/*",
+      "scripts/*"
+    ],
+    "matches": ["https://github.com/*"]
+  }],
+
+  "action": {
+    "default_popup": "pages/popup.html"
+  },
+  "background": {
+    "service_worker": "scripts/background.js"
+  },
+  "css": [
+    "styles/main.css"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://github.com/*/*"
+      ],
+      "js": [
+        "scripts/content.js",
+        "scripts/injectcomment.js",
+        "scripts/aihuman.js",
+        "scripts/dependency.js",
+        "scripts/injectcodesumm.js",
+        "scripts/gitlens-panel.js",
+        "scripts/contentScripts.js",
+        "scripts/pr_analysis.js"
+
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
