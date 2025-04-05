@@ -5,13 +5,16 @@ from flask_cors import CORS
 from langchain.schema import AIMessage
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain_groq import ChatGroq
+from deep_translator import GoogleTranslator
+import re
+import ast
 import requests
 from bs4 import BeautifulSoup
-from github import Github
-import re
 import time
 app = Flask(__name__)
-CORS(app)
+#CORS(app)
+#CORS(app, resources={r"/*": {"origins": "*"}})  # Ensure all routes allow CORS
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
 # Configuration
 app.config['VECTORSTORE'] = './vector_index'
@@ -20,13 +23,14 @@ os.makedirs(app.config['VECTORSTORE'], exist_ok=True)
 # Initialize embeddings and model
 embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-base-en-v1.5")
 model = ChatGroq(
-    groq_api_key="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", 
+    groq_api_key="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", 
     model="llama-3.3-70b-versatile", 
     temperature=0.5
 )
 
 @app.route('/')
 def index():
+    
     return "GitLens Repository Summarization Service is running."
 
 @app.route('/generate_summary', methods=['POST'])
@@ -53,6 +57,12 @@ Full Page Content:
 {full_text}
 
 Based on the above details, generate a detailed and accurate summary of the repository's purpose, structure, key functionalities, dependencies, and potential use cases.
+Return the analysis in HTML format where:
+- Main section headings use <h2> tags with bold styling.
+- Subheadings use <h3> tags.
+- Key points are wrapped in <strong> tags.
+- The overall design is clean and visually appealing.
+
 """
 
     try:
@@ -63,6 +73,133 @@ Based on the above details, generate a detailed and accurate summary of the repo
     except Exception as e:
         logging.error(f"Error generating summary: {e}")
         return jsonify({"error": f"Error generating summary: {str(e)}"}), 500
+
+@app.route('/generate_comments', methods=['POST'])
+def generate_comments():
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided."}), 400
+
+    repo_name = data.get('name', 'Unknown Repository')
+    repo_description = data.get('description', 'No description available.')
+    full_text = data.get('fullText', '')
+    prompt = f"""
+    Repository Name: {repo_name}
+    Description: {repo_description}
+    Full Page Content:
+    {full_text}
+
+    Generate inline code comments explaining each function and its purpose.
+    """
+
+    try:
+        summary = model.invoke(prompt)
+        return jsonify({"output": summary.content}), 200
+    except Exception as e:
+        return jsonify({"error": f"Error generating comments: {str(e)}"}), 500
+
+@app.route('/detect_ai_code', methods=['POST'])
+def detect_ai_code():
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided."}), 400
+
+    repo_name = data.get('name', 'Unknown Repository')
+    repo_description = data.get('description', 'No description available.')
+    full_text = data.get('fullText', '')
+
+    prompt = f"""
+    Repository Name: {repo_name}
+    Description: {repo_description}
+
+    Full Page Content:
+    {full_text}
+
+    Analyze the provided repository content and determine what percentage is likely AI-generated vs. human-written code.
+    Provide an estimate in the format: AI Code: X% | Human Code: Y%
+    """
+
+    try:
+        response = model.invoke(prompt)
+        result = response.content
+        ai_percentage, human_percentage = extract_percentages(result)
+
+        return jsonify({
+            "ai_percentage": ai_percentage,
+            "human_percentage": human_percentage
+        }), 200
+    except Exception as e:
+        logging.error(f"Error detecting AI code: {e}")
+        return jsonify({"error": f"Error detecting AI code: {str(e)}"}), 500
+def translate_text(text, target_lang):
+    try:
+        translator = GoogleTranslator(source='auto', target=target_lang)
+        translated = translator.translate(text)
+        return translated
+    except Exception as e:
+        logging.error(f"Error during translation: {e}")
+        return text  # Return original text on error
+    
+def extract_percentages(text):
+    import re
+    ai_match = re.search(r'AI Code:\s*(\d+)%', text)
+    human_match = re.search(r'Human Code:\s*(\d+)%', text)
+    
+    ai_percentage = int(ai_match.group(1)) if ai_match else 50
+    human_percentage = int(human_match.group(1)) if human_match else 50
+    return ai_percentage, human_percentage
+'''@app.route('/analyze_dependencies', methods=['POST', 'OPTIONS'])
+def analyze_dependencies():
+    if request.method == "OPTIONS":
+        return jsonify({"message": "CORS preflight successful"}), 200
+
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided."}), 400
+
+    repo_name = data.get('name', 'Unknown Repository')
+    repo_description = data.get('description', 'No description available.')
+    full_text = data.get('fullText', '')
+
+    print("\n✅ Received Data from Frontend for Dependency Analysis:")
+    print(f"Repo Name: {repo_name}")
+    print(f"Description: {repo_description}")
+
+    # Construct the refined prompt for LLM
+    prompt = f"""
+    Analyze the given Python code and extract:
+    - A list of function names and the functions they call.
+    - A list of class names and their dependencies (parent classes, used functions).
+
+    Code:
+    ```python
+    {full_text}
+    ```
+
+    Return the output as a structured JSON object, without any extra explanations:
+
+    {{
+        "functions": {{
+            "function_name_1": ["called_function_1", "called_function_2"],
+            "function_name_2": ["called_function_3"]
+        }},
+        "classes": {{
+            "ClassName1": ["ParentClass1", "used_function_1"],
+            "ClassName2": []
+        }}
+    }}
+    """
+
+    try:
+        response = model.invoke(prompt)
+        result = response.content
+
+        return jsonify({"dependencies": result}), 200
+    except Exception as e:
+        logging.error(f"Error analyzing dependencies: {e}")
+        return jsonify({"error": f"Error analyzing dependencies: {str(e)}"}), 500
+
+'''
 @app.route('/analyze_dependencies', methods=['POST', 'OPTIONS'])
 def analyze_dependencies():
     if request.method == "OPTIONS":
@@ -112,13 +249,85 @@ def analyze_dependencies():
     except Exception as e:
         logging.error(f"Error analyzing dependencies: {e}")
         return jsonify({"error": f"Error analyzing dependencies: {str(e)}"}), 500
+def perform_static_analysis(code_text):
+    """
+    Perform static analysis using Python's AST to extract functions and classes.
+    Returns a summary of the detected functions and classes.
+    """
+    try:
+        tree = ast.parse(code_text)
+    except Exception as e:
+        return "Error parsing code for static analysis: " + str(e)
+    
+    functions = []
+    classes = []
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef):
+            functions.append(node.name)
+        elif isinstance(node, ast.ClassDef):
+            classes.append(node.name)
+    
+    analysis = (
+        f"Functions defined: {', '.join(functions) if functions else 'None'}. "
+        f"Classes defined: {', '.join(classes) if classes else 'None'}."
+    )
+    return analysis
+
+@app.route("/analyze_code", methods=["POST"])
+def analyze_code():
+    """
+    Expects JSON with:
+      - code: The source code to analyze
+      - language: (Optional) target language code (default 'en')
+    Performs static analysis on the code and generates a natural language summary.
+    """
+    data = request.get_json()
+    if not data or "code" not in data:
+        return jsonify({"error": "No code provided."}), 400
+
+    code_text = data["code"]
+    selected_lang = data.get("language", "en")
+
+    # Perform static analysis using the AST
+    analysis_insights = perform_static_analysis(code_text)
+    print("Static Analysis Insights:", analysis_insights)
+
+    prompt = f"""
+The following code has been analyzed for structure:
+
+Static Analysis Insights:
+{analysis_insights}
+
+Full Code:
+{code_text}
+
+Generate a clear and easy-to-understand natural language summary of the entire code in a detailed manner. Describe the code, functions, classes, and their relationships, along with their use cases, in a structured and comprehensive way. Ensure the explanation covers how different components interact and contribute to the overall functionality of the program.Return the analysis in HTML format where:
+- Main section headings use <h2> tags with bold styling.
+- Subheadings use <h3> tags.
+- Key points are wrapped in <strong> tags.
+ - Bullet points should appear on **separate lines** using `<ul><li>` format.
+  - Ensure **proper line breaks** and **visual spacing** between sections.
+  - Use **paragraphs `<p>`** to improve readability.
+  - Do not compress all bullet points into one paragraph; instead, place each point clearly and separately.
+  - Make the output **clean and visually appealing** for display in a modal or rich text viewer.
+    """
+    try:
+        summary = model.invoke(prompt)
+        if isinstance(summary, AIMessage):
+            summary = summary.content
+
+        if selected_lang != "en":
+            summary = translate_text(summary, target_lang=selected_lang)
+        return jsonify({"summary": summary}), 200
+    except Exception as e:
+        logging.error(f"Error generating code analysis summary: {e}")
+        return jsonify({"error": f"Error generating code analysis summary: {str(e)}"}), 500
 
 
-# Return cleaned number
 def clean_pr_number(raw_number):
-    match = re.search(r'\d+', raw_number) 
-    return match.group() if match else raw_number  
-# Gets the PR data using Scraping 
+    match = re.search(r'\d+', raw_number)  # Extract only digits
+    return match.group() if match else raw_number  # Return cleaned number
 def get_pr_data(repo_url, max_prs=5):
     if not repo_url.endswith("/pulls"):
         repo_url += "/pulls"
@@ -189,7 +398,7 @@ def get_pr_data(repo_url, max_prs=5):
                 continue
 
             pr_soup = BeautifulSoup(pr_response.text, "html.parser")
-             status_elem = pr_soup.select_one(".State")
+            status_elem = pr_soup.select_one(".State")
             if status_elem:
                 status_class=status_elem.get("class", [])
                 print("Status Class:", status_class)
@@ -215,7 +424,6 @@ def get_pr_data(repo_url, max_prs=5):
     except requests.exceptions.RequestException as e:
         print("Error fetching PRs:", str(e))
         return None
-#Route to get the PR data 
 @app.route("/get_latest_pr_data", methods=["GET"])
 def get_latest_pr_data_route():
     repo_url = request.args.get("repo_url")
@@ -232,7 +440,6 @@ def get_latest_pr_data_route():
 
     print("✅ PR Data:", pr_data)
     return jsonify(pr_data)
-#Route to generate PR analysis 
 @app.route("/pr_analysis", methods=["POST"])
 def pr_analysis():
     print("Received request for PR analysis")
@@ -245,7 +452,8 @@ def pr_analysis():
     
     if not repo_url or not pr_number:
         return jsonify({"error": "Missing repo_url or pr_number"}), 400
-    
+    print("Repo URL:", repo_url)
+    print("PR Number:", pr_number)
     pr_data = get_pr_data(repo_url, 5)  
     pr_info = next((pr for pr in pr_data if pr.get("Number") == pr_number),None)
     print("Selected PR Info:", pr_info)
@@ -274,5 +482,8 @@ def pr_analysis():
             summary = summary.content
     print("PR Analysis Summary:", summary)
     return jsonify({"summary": summary}), 200
+
+
+
 if __name__ == '__main__':
     app.run(debug=True)
