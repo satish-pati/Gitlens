@@ -3,21 +3,24 @@
     const commentCard = document.querySelector('[data-feature="comment-generator"]');
     // Create modal container for the comment result
     let modal = document.createElement("div");
-    modal.id = "commentModal";
+    modal.id = "analysisModal";
     modal.style.position = "fixed";
     modal.style.top = "50%";
     modal.style.left = "50%";
     modal.style.transform = "translate(-50%, -50%)";
-    modal.style.width = "80%";
+    modal.style.width = "100vw";
     modal.style.maxWidth = "600px";
-    modal.style.backgroundColor = "#fff";
-    modal.style.border = "1px solid #ccc";
-    modal.style.boxShadow = "0 2px 10px rgba(0,0,0,0.2)";
+    modal.style.backgroundColor = "#0d1117";
+    modal.style.border = "1px solid #30363d";
+    modal.style.boxShadow = "0 8px 24px rgba(0, 0, 0, 0.5)";
     modal.style.padding = "20px";
     modal.style.zIndex = "10001";
     modal.style.display = "none";
+document.body.style.overflow = "hidden";
     modal.style.overflowY = "auto";
-    modal.style.maxHeight = "80%";
+    modal.style.maxHeight = "100%";
+    modal.style.color = "#c9d1d9";
+
 
     // Create close button for modal
     let closeButton = document.createElement("span");
@@ -32,6 +35,9 @@
     // Create content container inside modal for the comment text
     let commentContent = document.createElement("div");
     commentContent.id = "commentContent";
+    commentContent.style.fontSize = "1.2rem";
+commentContent.style.lineHeight = "1.6";
+commentContent.style.fontWeight = "500";
     modal.appendChild(commentContent);
     document.body.appendChild(modal);
 
