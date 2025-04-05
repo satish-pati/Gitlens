@@ -98,3 +98,13 @@
         return repoData;
     }
 })();
+
+
+function getGitHubRepoDetailsFromTab(callback) {
+    chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+        const activeTab = tabs[0];
+        chrome.tabs.sendMessage(activeTab.id, { action: "scrapeRepoDetails" }, function(response) {
+            callback(response);
+        });
+    });
+}
