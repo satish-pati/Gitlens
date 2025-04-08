@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "GitLens",
   "version": "1.0",
-  "description": "Auto-generates concise summaries of repo structure, key functionalities, and dependencies on GitHub repositories.",
+  "description": "Auto-generates concise summaries of CODE, key functionalities, and dependencies on GitHub Pages.",
   "permissions": [
     "activeTab",
     "scripting",
