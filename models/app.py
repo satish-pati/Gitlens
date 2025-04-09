@@ -1,6 +1,6 @@
 import os
 import logging
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify,session,redirect
 from flask_cors import CORS
 from langchain.schema import AIMessage
 from langchain.embeddings import HuggingFaceEmbeddings
@@ -11,6 +11,7 @@ import ast
 import requests
 from bs4 import BeautifulSoup
 import time
+import base64
 app = Flask(__name__)
 #CORS(app)
 #CORS(app, resources={r"/*": {"origins": "*"}})  # Ensure all routes allow CORS
@@ -32,7 +33,36 @@ model = ChatGroq(
 def index():
     
     return "GitLens Repository Summarization Service is running."
+@app.route('/generate_commit_message', methods=['POST'])
+def generate_commit_message():
+    data = request.get_json()
+    if not data or "diff" not in data:
+        return jsonify({"error": "No diff data provided."}), 400
 
+    git_diff = data["diff"]
+
+    prompt = f"""
+You are an expert Git assistant.
+
+Based on the following Git diff, write a clear, concise, and conventional commit message. 
+Structure the message in imperative tone (e.g., "Fix bug", "Add feature"), and include a short subject and optionally a body if needed.
+
+Git Diff:
+{git_diff}
+
+css
+Copy
+Edit
+Return ONLY the commit message, no explanations or formatting.
+"""
+
+    try:
+        response = model.invoke(prompt)
+        if isinstance(response, AIMessage):
+            response = response.content
+        return jsonify({"commit_message": response.strip()}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 @app.route('/generate_summary', methods=['POST'])
 def generate_summary():
     data = request.get_json()
@@ -61,9 +91,13 @@ Return the analysis in HTML format where:
 - Main section headings use <h2> tags with bold styling.
 - Subheadings use <h3> tags.
 - Key points are wrapped in <strong> tags.
-- The overall design is clean and visually appealing.
+ - Bullet points should appear on **separate lines** using `<ul><li>` format.
+  - Ensure **proper line breaks** and **visual spacing** between sections.
+  - Use **paragraphs `<p>`** to improve readability.
+  - Do not compress all bullet points into one paragraph; instead, place each point clearly and separately.
+  - Make the output **clean and visually appealing** for display in a modal or rich text viewer.
+    """
 
-"""
 
     try:
         summary = model.invoke(prompt)
@@ -139,7 +173,7 @@ def translate_text(text, target_lang):
     except Exception as e:
         logging.error(f"Error during translation: {e}")
         return text  # Return original text on error
-    
+
 def extract_percentages(text):
     import re
     ai_match = re.search(r'AI Code:\s*(\d+)%', text)
@@ -273,6 +307,75 @@ def perform_static_analysis(code_text):
         f"Classes defined: {', '.join(classes) if classes else 'None'}."
     )
     return analysis
+@app.route('/generate_pr_details', methods=['POST'])
+def generate_pr_details():
+    """
+    Expects JSON:
+    {
+      "diff": "...full diff string..."
+    }
+    Returns:
+    {
+      "title": "AI-generated PR title",
+      "description": "AI-generated PR description"
+    }
+    """
+    data = request.get_json()
+    diff = data.get('diff', '')
+
+    if not diff:
+        return jsonify({"error": "No diff provided"}), 400
+
+    # Use your language model to generate title + description
+    prompt = f"""
+You're an assistant that summarizes GitHub Pull Request diffs.
+
+Diff:
+{diff}
+
+Analyze this diff and generate a meaningful:
+1. PR Title — very short, clear, concise.
+2. PR Description — structured, markdown-friendly, and informative.
+
+Format:
+---
+Title: <one-line summary>
+Description:
+<bulleted or paragraph markdown-friendly summary>
+---
+Return only the title and description clearly labeled.
+    """
+
+    try:
+        result = model.invoke(prompt)
+        if isinstance(result, AIMessage):
+            result = result.content
+
+        # Basic parsing from LLM output
+        title = ""
+        description = ""
+
+        lines = result.splitlines()
+        for i, line in enumerate(lines):
+            if line.lower().startswith("title:"):
+                title = line.split(":", 1)[1].strip()
+            if line.lower().startswith("description:"):
+                description = "\n".join(lines[i + 1:]).strip()
+                break
+
+        if not title:
+            title = "Update based on recent changes"
+        if not description:
+            description = "This PR includes changes based on the recent code diff."
+
+        return jsonify({
+            "title": title,
+            "description": description
+        })
+
+    except Exception as e:
+        logging.error(f"🔥 Error in generate_pr_details: {e}")
+        return jsonify({"error": "Failed to generate PR summary"}), 500
 
 @app.route("/analyze_code", methods=["POST"])
 def analyze_code():
@@ -280,7 +383,7 @@ def analyze_code():
     Expects JSON with:
       - code: The source code to analyze
       - language: (Optional) target language code (default 'en')
-    Performs static analysis on the code and generates a natural language summary.
+    Sends code directly to the LLM to generate a full analysis and explanation.
     """
     data = request.get_json()
     if not data or "code" not in data:
@@ -289,28 +392,28 @@ def analyze_code():
     code_text = data["code"]
     selected_lang = data.get("language", "en")
 
-    # Perform static analysis using the AST
-    analysis_insights = perform_static_analysis(code_text)
-    print("Static Analysis Insights:", analysis_insights)
-
     prompt = f"""
-The following code has been analyzed for structure:
+You are an intelligent  code analysis assistant.
 
-Static Analysis Insights:
-{analysis_insights}
+Your task is to analyze the following source code (in any programming language), and generate a structured,summary of the whole code.
 
-Full Code:
+### Instructions:
+- Identify and list all **functions**(all not only explict functions) and **classes**, along with their **purpose** and **interactions**.
+- Generate the ** Summary and Functionality** of the program.
+- Highlight how the components work together.
+- If applicable, explain control flow, key logic, and data structures used.
+- Finally , provide a **summary** of the code's purpose and any notable features.
+
+### Output Format (in HTML):
+- Use `<h2>` for major sections and `<h3>` for subsections.
+- Use `<ul><li>` for bullet points (place each bullet on a separate line).
+- Use `<strong>` tags for highlighting important terms.
+- Wrap paragraphs with `<p>`, and add line breaks for clean spacing.
+- Keep it clean, readable, and visually suitable for a web modal.
+
+### Code:
 {code_text}
 
-Generate a clear and easy-to-understand natural language summary of the entire code in a detailed manner. Describe the code, functions, classes, and their relationships, along with their use cases, in a structured and comprehensive way. Ensure the explanation covers how different components interact and contribute to the overall functionality of the program.Return the analysis in HTML format where:
-- Main section headings use <h2> tags with bold styling.
-- Subheadings use <h3> tags.
-- Key points are wrapped in <strong> tags.
- - Bullet points should appear on **separate lines** using `<ul><li>` format.
-  - Ensure **proper line breaks** and **visual spacing** between sections.
-  - Use **paragraphs `<p>`** to improve readability.
-  - Do not compress all bullet points into one paragraph; instead, place each point clearly and separately.
-  - Make the output **clean and visually appealing** for display in a modal or rich text viewer.
     """
     try:
         summary = model.invoke(prompt)
@@ -323,7 +426,6 @@ Generate a clear and easy-to-understand natural language summary of the entire c
     except Exception as e:
         logging.error(f"Error generating code analysis summary: {e}")
         return jsonify({"error": f"Error generating code analysis summary: {str(e)}"}), 500
-
 
 def clean_pr_number(raw_number):
     match = re.search(r'\d+', raw_number)  # Extract only digits
@@ -482,8 +584,108 @@ def pr_analysis():
             summary = summary.content
     print("PR Analysis Summary:", summary)
     return jsonify({"summary": summary}), 200
+# Secret key for session management
+app.secret_key = "a93b1e43f813b6bb1e23365d5ecb9024f9a58fd762fc901ec98fc45dfb57d01e"
 
+# GitHub OAuth Config
+GITHUB_CLIENT_ID = "Ov23liGeRRKhV7YK02vO"
+GITHUB_CLIENT_SECRET = "ef019357cbfbcdbb056d8dda63d98132df08726e"
+REDIRECT_URI = "http://localhost:5000/callback"
+@app.route("/login")
+def login():
+    github_oauth_url = (
+        f"https://github.com/login/oauth/authorize?client_id={GITHUB_CLIENT_ID}&scope=repo"
+    )
+    return redirect(github_oauth_url)
 
+@app.route("/callback")
+def callback():
+    code = request.args.get("code")
+    if not code:
+        return "❌ No code provided."
+
+    token_response = requests.post(
+        "https://github.com/login/oauth/access_token",
+        headers={"Accept": "application/json"},
+        data={
+            "client_id": GITHUB_CLIENT_ID,
+            "client_secret": GITHUB_CLIENT_SECRET,
+            "code": code,
+        },
+    )
+
+    token_json = token_response.json()
+    access_token = token_json.get("access_token")
+    if not access_token:
+        return jsonify({"error": "Failed to get access token."}), 400
+
+    session["github_token"] = access_token
+    return redirect("/token_success")
+
+@app.route("/token_success")
+def token_success():
+    return "✅ Token stored in session. You may now push to GitHub from extension."
+
+@app.route("/get_token")
+def get_token():
+    token = session.get("github_token")
+    if not token:
+        return jsonify({"error": "Token not found in session."}), 403
+    return jsonify({"token": token})
+@app.route('/push_to_repo', methods=['POST'])
+def push_to_repo():
+    data = request.get_json()
+    print("📥 Incoming Data:", data)  # DEBUG
+
+    required = ['owner', 'repo', 'branch', 'file_path', 'new_content']
+    token = session.get("github_token")
+    owner = data["owner"]
+    repo = data["repo"]
+    branch = data["branch"]
+    path = data["file_path"]
+    new_content = data["new_content"]
+    #token = data["token"]
+    if not token:
+        return jsonify({"error": "GitHub token not found. Please login again."}), 401
+
+    print(f"🔍 Fetching SHA for: {owner}/{repo}/{path}@{branch}")
+    print(token)
+    print(new_content)
+    headers = {
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+
+    # STEP 1: Get file SHA
+    get_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}?ref={branch}"
+    get_resp = requests.get(get_url, headers=headers)
+    print("📡 GET File SHA Response:", get_resp.status_code, get_resp.text)
+
+    if get_resp.status_code != 200:
+        return jsonify({"error": f"Failed to fetch file: {get_resp.json().get('message')}"}), 404
+
+    sha = get_resp.json()["sha"]
+    print("✅ Fetched SHA:", sha)
+
+    # STEP 2: Push new content
+    put_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
+    payload = {
+        "message": "🤖 Updated with inline comments",
+        "content": base64.b64encode(new_content.encode()).decode(),
+        "branch": branch,
+        "sha": sha
+    }
+
+    print("📤 Sending PUT to update file...")
+    put_resp = requests.put(put_url, headers=headers, json=payload)
+    print("📡 PUT Response:", put_resp.status_code, put_resp.text)
+
+    if put_resp.status_code in [200, 201]:
+        print("✅ Successfully updated the file.")
+        return jsonify({"status": "✅ File updated successfully!"}), 200
+    else:
+        print("❌ Failed to update file:", put_resp.json())
+        return jsonify({"error": f"Update failed: {put_resp.json()}"}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
