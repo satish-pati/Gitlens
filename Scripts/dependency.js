@@ -1,6 +1,6 @@
 (function () {
     // Create and style the Analyze Dependencies button
-    const dependencyButton = document.createElement("button");
+    /*const dependencyButton = document.createElement("button");
     dependencyButton.innerText = "Analyze Dependencies";
     Object.assign(dependencyButton.style, {
         position: "fixed",
@@ -16,8 +16,10 @@
         boxShadow: "0 4px 6px rgba(0,0,0,0.2)",
         cursor: "pointer",
     });
-    document.body.appendChild(dependencyButton);
+    document.body.appendChild(dependencyButton);*/
 
+
+const dependencyButton = document.querySelector('[data-feature="dependency-viz"]');
     // Modal container
     const modal = document.createElement("div");
     Object.assign(modal.style, {
@@ -68,7 +70,9 @@
         modal.style.display = "block";
         dependencyContent.innerHTML = `<p style="grid-column: span 2; font-weight: bold;">🔍 Analyzing dependencies...</p>`;
 
-        let repoData = scrapeRepoDetails();
+      //  let repoData = scrapeRepoDetails();
+      getGitHubRepoDetailsFromTab(async (repoData) => {
+
         if (repoData.error) {
             dependencyContent.innerHTML = `<p>${repoData.error}</p>`;
             return;
@@ -86,6 +90,7 @@
         } catch (error) {
             dependencyContent.innerHTML = `<p style="color: red;">⚠️ Error: ${error.message}</p>`;
         }
+    });
     });
 
     // Render data as cards/boxes
@@ -157,3 +162,12 @@
         };
     }
 })();
+
+function getGitHubRepoDetailsFromTab(callback) {
+    chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+        const activeTab = tabs[0];
+        chrome.tabs.sendMessage(activeTab.id, { action: "scrapeRepoDetails" }, function(response) {
+            callback(response);
+        });
+    });
+}
