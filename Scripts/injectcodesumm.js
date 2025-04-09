@@ -1,4 +1,5 @@
 
+console.log("✅ contentScripts.js LOADED");
   (function() {
     // Create and style the floating Analyze Code button
     let analysisButton =document.querySelector('[data-feature="repo-summary"]');
@@ -98,21 +99,7 @@
             return;
         }
       
-      /*let codeLines = [];
-      document.querySelectorAll(".application-main ").forEach(line => {
-        codeLines.push(line.innerText);
-      });
-      let codeText = codeLines.join("\n");
-      
-      if (!codeText) {
-        analysisContent.innerText = "No code found on this page.";
-        return;
-      }
-      
-      let data = {
-        code: codeText,
-        language: selectedLang
-      };*/
+    
       let data = {
         code: codeText,
         language: selectedLang
@@ -134,9 +121,7 @@
    
     });}
   );
-  
-  })();
-  function getGitHubRepoDetailsFromTab(callback) {
+   function getGitHubRepoDetailsFromTab(callback) {
     chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
         const activeTab = tabs[0];
         chrome.tabs.sendMessage(activeTab.id, { action: "codesummarize" }, function(response) {
@@ -144,3 +129,5 @@
         });
     });
 }
+  })();
+ 
