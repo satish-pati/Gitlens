@@ -1,20 +1,18 @@
+
 (async function () {
-    if (!window.location.href.includes("github.com")) return;
+
+    //if (!window.location.href.includes("github.com")) return;
 
     let fetchedPRs = [];
-
-    function injectButton() {
         const navBar = document.querySelector(".repository-content");
-        if (!navBar || document.getElementById("pr-analysis-btn")) return;
-
-        const button = document.createElement("button");
-        button.id = "pr-analysis-btn";
-        button.innerText = "PR Analysis";
-        button.style.cssText = "padding: 8px 15px; margin: 10px; background-color:rgb(66, 119, 162); color: white; border: none; border-radius: 6px; cursor: pointer;";
-        button.onclick = fetchPullRequests;
-        button.style.position='fixed';
-        navBar.prepend(button);
-    }
+        
+    
+        let button1 = document.querySelector('[data-feature="pr-analysis"]');
+        button1.addEventListener("click", async() => {
+            fetchPullRequests();
+        });
+   
+    
     function showLoadingModal() {
         let modal = document.getElementById("loading-modal");
         if (!modal) {
@@ -51,7 +49,7 @@
         let loaderStyle = document.createElement("style");
         loaderStyle.innerHTML = `
             .loader {
-                position: relative;
+                position: fixed;
                 width: 2.5em;
                 height: 2.5em;
                 transform: rotate(165deg);
@@ -121,18 +119,11 @@
         `;
         document.head.appendChild(loaderStyle);
     }
-
     injectLoaderStyles();
     async function fetchPullRequests() {
-        const repoInfo = window.location.pathname.split("/");
-        if (repoInfo.length < 3) {
-            alert("Unable to detect repository details.");
-            return;
-        }
-
-        const owner = repoInfo[1];
-        const repo = repoInfo[2];
-        const repoUrl = `https://github.com/${owner}/${repo}`;
+        getGitHubRepoDetailsFromTab(async (codeText) => {
+        let repoUrl = codeText;
+        
         let modal = document.getElementById("loading-modal");
         showLoadingModal();
         try {
@@ -147,6 +138,7 @@
             alert("Failed to load PRs.");
         }
     }
+);}
     function displayPRs(pullRequests) {
         let modal = document.getElementById("pr-analysis-modal");
         if (modal) modal.remove(); 
@@ -155,17 +147,18 @@
         modal.id = "pr-analysis-modal";
         modal.style.cssText = `
             position: fixed;
-            top: 10%;
+            top: 0%;
             left: 50%;
             transform: translateX(-50%);
-            width: 70%;
+            width: 100%;
+            height: 100%;
             background: white;
             color: black;
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
             z-index: 1000;
-            max-height: 80vh;
+            max-height: 100vh;
             overflow-y: auto;
         `;
     
@@ -221,8 +214,9 @@
             console.error("Invalid PR index:", index);
             return;
         }
+        getGitHubRepoDetailsFromTab(async (codeText) => {
+            let repoUrl = codeText;
     
-        const repoUrl = window.location.origin + window.location.pathname;
         console.log("PR Object:", pr);
     
         // ✅ Extract only the PR number
@@ -232,20 +226,22 @@
             repo_url: repoUrl,
             pr_number: prNumberCleaned
         });
+
     
         const modal = document.createElement("div");
         modal.style.cssText = `
             position: fixed;
-            top: 10%;
+            top: 0%;
             left: 50%;
             transform: translateX(-50%);
-            width: 60%;
+            width: 100%;
+            height: 100%;
             background: #fff;
             color: #000;
             padding: 20px;
             border-radius: 10px;
             z-index: 1100;
-            max-height: 80vh;
+            max-height: 100%;
             overflow-y: auto;
             box-shadow: 0 0 15px rgba(0,0,0,0.5);
         `;
@@ -302,6 +298,14 @@
             document.getElementById("ai-analysis").innerText = "Error fetching AI analysis.";
         }
     }
-    
-    injectButton();
+)};
 })();
+
+function getGitHubRepoDetailsFromTab(callback) {
+    chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+        const activeTab = tabs[0];
+        chrome.tabs.sendMessage(activeTab.id, { action: "pr_analysis" }, function(response) {
+            callback(response);
+        });
+    });
+}
