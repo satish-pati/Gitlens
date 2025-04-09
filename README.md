@@ -1,5 +1,4 @@
-# Release 1 Report - GitLens
-## Group 6
+
 
 ## What is our project all about?
 
