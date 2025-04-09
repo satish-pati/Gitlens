@@ -1,104 +1,167 @@
-(function() {
-    // Create and style the Dependency Analysis button
-    let dependencyButton = document.createElement("button");
+(function () {
+    // Create and style the Analyze Dependencies button
+    /*const dependencyButton = document.createElement("button");
     dependencyButton.innerText = "Analyze Dependencies";
-    dependencyButton.style.position = "fixed";
-    dependencyButton.style.bottom = "140px";
-    dependencyButton.style.right = "20px";
-    dependencyButton.style.padding = "10px 15px";
-    dependencyButton.style.zIndex = "10000";
-    dependencyButton.style.backgroundColor = "#ff9800";
-    dependencyButton.style.color = "#fff";
-    dependencyButton.style.border = "none";
-    dependencyButton.style.borderRadius = "5px";
-    dependencyButton.style.cursor = "pointer";
-    document.body.appendChild(dependencyButton);
+    Object.assign(dependencyButton.style, {
+        position: "fixed",
+        bottom: "140px",
+        right: "20px",
+        padding: "12px 18px",
+        zIndex: "10000",
+        backgroundColor: "#1976D2",
+        color: "#fff",
+        border: "none",
+        borderRadius: "8px",
+        fontSize: "14px",
+        boxShadow: "0 4px 6px rgba(0,0,0,0.2)",
+        cursor: "pointer",
+    });
+    document.body.appendChild(dependencyButton);*/
 
-    // Create modal container for results
-    let modal = document.createElement("div");
-    modal.id = "dependencyModal";
-    modal.style.position = "fixed";
-    modal.style.top = "50%";
-    modal.style.left = "50%";
-    modal.style.transform = "translate(-50%, -50%)";
-    modal.style.width = "80%";
-    modal.style.maxWidth = "600px";
-    modal.style.backgroundColor = "#fff";
-    modal.style.border = "1px solid #ccc";
-    modal.style.boxShadow = "0 2px 10px rgba(0,0,0,0.2)";
-    modal.style.padding = "20px";
-    modal.style.zIndex = "10001";
-    modal.style.display = "none";
-    modal.style.overflowY = "auto";
-    modal.style.maxHeight = "80%";
 
-    // Create close button
-    let closeButton = document.createElement("span");
+const dependencyButton = document.querySelector('[data-feature="dependency-viz"]');
+    // Modal container
+    const modal = document.createElement("div");
+    Object.assign(modal.style, {
+        position: "fixed",
+        top: "50%",
+        left: "50%",
+        transform: "translate(-50%, -50%)",
+        width: "90%",
+        maxWidth: "900px",
+        backgroundColor: "#f9f9f9",
+        borderRadius: "10px",
+        padding: "20px",
+        zIndex: "10001",
+        boxShadow: "0 6px 24px rgba(0,0,0,0.2)",
+        overflowY: "auto",
+        maxHeight: "80%",
+        display: "none",
+        fontFamily: "Arial, sans-serif",
+    });
+
+    // Close button
+    const closeButton = document.createElement("span");
     closeButton.innerText = "✖";
-    closeButton.style.position = "absolute";
-    closeButton.style.top = "10px";
-    closeButton.style.right = "15px";
-    closeButton.style.cursor = "pointer";
-    closeButton.style.fontSize = "20px";
-    modal.appendChild(closeButton);
+    Object.assign(closeButton.style, {
+        position: "absolute",
+        top: "12px",
+        right: "18px",
+        cursor: "pointer",
+        fontSize: "22px",
+        color: "#555",
+    });
+    closeButton.onclick = () => modal.style.display = "none";
 
-    // Create content container inside modal
-    let dependencyContent = document.createElement("div");
+    // Content container
+    const dependencyContent = document.createElement("div");
     dependencyContent.id = "dependencyContent";
+    dependencyContent.style.display = "grid";
+    dependencyContent.style.gridTemplateColumns = "1fr 1fr";
+    dependencyContent.style.gap = "20px";
+    dependencyContent.style.marginTop = "30px";
+
+    modal.appendChild(closeButton);
     modal.appendChild(dependencyContent);
     document.body.appendChild(modal);
 
-    // Close modal when clicking the close button
-    closeButton.addEventListener("click", function() {
-        modal.style.display = "none";
-    });
-
-    // When the Dependency Analysis button is clicked
+    // Show modal and analyze on button click
     dependencyButton.addEventListener("click", async () => {
-        dependencyContent.innerText = "Analyzing dependencies...";
         modal.style.display = "block";
+        dependencyContent.innerHTML = `<p style="grid-column: span 2; font-weight: bold;">🔍 Analyzing dependencies...</p>`;
 
-        // Extract repository details
-        let repoData = scrapeRepoDetails();
+      //  let repoData = scrapeRepoDetails();
+      getGitHubRepoDetailsFromTab(async (repoData) => {
+
         if (repoData.error) {
-            dependencyContent.innerText = repoData.error;
+            dependencyContent.innerHTML = `<p>${repoData.error}</p>`;
             return;
         }
-        
-        console.log("Extracted Repo Data:", repoData);
-        
-        // Send extracted data to backend
+
         try {
             let response = await fetch("http://localhost:5000/analyze_dependencies", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(repoData)
+                body: JSON.stringify(repoData),
             });
             let result = await response.json();
-            dependencyContent.innerText = JSON.stringify(result.dependencies, null, 2);
+
+            renderDependencyBoxes(result.dependencies);
         } catch (error) {
-            dependencyContent.innerText = "Error contacting backend: " + error.message;
+            dependencyContent.innerHTML = `<p style="color: red;">⚠️ Error: ${error.message}</p>`;
         }
     });
+    });
 
-    // Function to extract repository details
+    // Render data as cards/boxes
+    function renderDependencyBoxes(rawText) {
+        dependencyContent.innerHTML = "";
+
+        let sections = rawText.split("----").map(s => s.trim()).filter(Boolean);
+        sections.forEach((sectionText, index) => {
+            let title = index === 0 ? "🧩 Functions and Their Dependencies" : "🏛️ Classes and Their Dependencies";
+            const section = document.createElement("div");
+            section.style.gridColumn = "span 2";
+
+            const heading = document.createElement("h2");
+            heading.innerText = title;
+            heading.style.marginBottom = "10px";
+            section.appendChild(heading);
+
+            const lines = sectionText.split("\n").slice(1);
+            const boxContainer = document.createElement("div");
+            boxContainer.style.display = "flex";
+            boxContainer.style.flexWrap = "wrap";
+            boxContainer.style.gap = "15px";
+
+            lines.forEach(line => {
+                if (!line.includes("→")) return;
+                const [left, right] = line.split("→").map(s => s.trim());
+
+                const card = document.createElement("div");
+                Object.assign(card.style, {
+                    border: "1px solid #ccc",
+                    borderRadius: "8px",
+                    padding: "12px 16px",
+                    backgroundColor: "#fff",
+                    minWidth: "200px",
+                    maxWidth: "100%",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                });
+
+                const name = document.createElement("div");
+                name.innerHTML = `<strong>${left}</strong>`;
+                const deps = document.createElement("div");
+                deps.style.fontSize = "13px";
+                deps.style.marginTop = "6px";
+                deps.innerHTML = `<span style="color:#555;">Depends on:</span><br>${right.split(",").map(d => `• ${d.trim()}`).join("<br>")}`;
+
+                card.appendChild(name);
+                card.appendChild(deps);
+                boxContainer.appendChild(card);
+            });
+
+            section.appendChild(boxContainer);
+            dependencyContent.appendChild(section);
+        });
+    }
+
+    // Extract repository details
     function scrapeRepoDetails() {
-        let repoData = {};
-
         if (!document.location.hostname.includes("github.com")) {
-            return { error: "This does not appear to be a GitHub repository page." };
+            return { error: "❌ This is not a GitHub repository page." };
         }
 
-        let repoNameElem = document.querySelector('strong[itemprop="name"] a');
-        repoData.name = repoNameElem ? repoNameElem.innerText.trim() : "Unknown Repo";
-        let descElem = document.querySelector('meta[name="description"]');
-        repoData.description = descElem ? descElem.content.trim() : "No description available.";
-        repoData.fullText = document.body.innerText;
+        const repoNameElem = document.querySelector('strong[itemprop="name"] a');
+        const descElem = document.querySelector('meta[name="description"]');
 
-        return repoData;
+        return {
+            name: repoNameElem?.innerText.trim() || "Unknown Repo",
+            description: descElem?.content.trim() || "No description available.",
+            fullText: document.body.innerText,
+        };
     }
 })();
-
 
 function getGitHubRepoDetailsFromTab(callback) {
     chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
