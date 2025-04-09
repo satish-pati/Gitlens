@@ -2,14 +2,18 @@
   "manifest_version": 3,
   "name": "GitLens",
   "version": "1.0",
-  "description": "Auto-generates concise summaries of CODE, key functionalities, and dependencies on GitHub Pages.",
+  "description": "Auto-generates concise summaries of repo structure, key functionalities, and dependencies on GitHub repositories.",
   "permissions": [
+    "cookies",
     "activeTab",
     "scripting",
     "storage",
     "http://localhost:5000/","http://127.0.0.1:5000/"
 
   ],
+  "host_permissions": [
+  "http://localhost:5000/"
+],
   "web_accessible_resources": [{
     "resources": [
       "pages/*",
@@ -31,7 +35,8 @@
   "content_scripts": [
     {
       "matches": [
-        "https://github.com/*/*"
+        "https://github.com/*"
+
       ],
       "js": [
         "scripts/content.js",
@@ -41,8 +46,9 @@
         "scripts/injectcodesumm.js",
         "scripts/gitlens-panel.js",
         "scripts/contentScripts.js",
-        "scripts/pr_analysis.js"
-
+        "scripts/pr_analysis.js",
+        "scripts/commitgen.js",
+        "scripts/pullreq.js"
       ],
       "run_at": "document_idle"
     }
