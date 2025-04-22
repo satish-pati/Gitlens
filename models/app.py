@@ -11,7 +11,17 @@ import ast
 import requests
 from bs4 import BeautifulSoup
 import time
+from flask import make_response
 import base64
+from langchain_groq import ChatGroq
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain.chains import create_retrieval_chain, create_history_aware_retriever
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain_core.runnables.history import RunnableWithMessageHistory
+from langchain_community.chat_message_histories import ChatMessageHistory
+from langchain_core.chat_history import BaseChatMessageHistory
+import os
+
 app = Flask(__name__)
 #CORS(app)
 #CORS(app, resources={r"/*": {"origins": "*"}})  # Ensure all routes allow CORS
@@ -24,7 +34,7 @@ os.makedirs(app.config['VECTORSTORE'], exist_ok=True)
 # Initialize embeddings and model
 embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-base-en-v1.5")
 model = ChatGroq(
-    groq_api_key="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", 
+    groq_api_key="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", 
     model="llama-3.3-70b-versatile", 
     temperature=0.5
 )
@@ -113,19 +123,15 @@ def generate_comments():
     data = request.get_json()
     if not data:
         return jsonify({"error": "No data provided."}), 400
-
-    repo_name = data.get('name', 'Unknown Repository')
-    repo_description = data.get('description', 'No description available.')
-    full_text = data.get('fullText', '')
+    #repo_name = data.get('name', 'Unknown Repository')
+    #repo_description = data.get('description', 'No description available.')
+    full_text = data
+    print(full_text)
     prompt = f"""
-    Repository Name: {repo_name}
-    Description: {repo_description}
-    Full Page Content:
+    Code:
     {full_text}
-
-    Generate inline code comments explaining each function and its purpose.
+    Add concise, one-line comments directly above each function definition explaining its purpose. Do not remove or alter any code. Do not add any extra commentary or headers. Only insert  inline comments above functions. Output all the code.
     """
-
     try:
         summary = model.invoke(prompt)
         return jsonify({"output": summary.content}), 200
@@ -138,18 +144,15 @@ def detect_ai_code():
     if not data:
         return jsonify({"error": "No data provided."}), 400
 
-    repo_name = data.get('name', 'Unknown Repository')
-    repo_description = data.get('description', 'No description available.')
-    full_text = data.get('fullText', '')
-
+    
+    full_text = data
+    print(full_text)
     prompt = f"""
-    Repository Name: {repo_name}
-    Description: {repo_description}
 
     Full Page Content:
     {full_text}
 
-    Analyze the provided repository content and determine what percentage is likely AI-generated vs. human-written code.
+    Analyze the provided code and determine what percentage is likely AI-generated vs. human-written code.
     Provide an estimate in the format: AI Code: X% | Human Code: Y%
     """
 
@@ -242,25 +245,19 @@ def analyze_dependencies():
     data = request.get_json()
     if not data:
         return jsonify({"error": "No data provided."}), 400
-
-    repo_name = data.get('name', 'Unknown Repository')
-    repo_description = data.get('description', 'No description available.')
-    full_text = data.get('fullText', '')
-
-    print("\n✅ Received Data from Frontend for Dependency Analysis:")
-    print(f"Repo Name: {repo_name}")
-    print(f"Description: {repo_description}")
+    full_text = data
+    print(full_text)
 
     # Construct the refined prompt for LLM
     prompt = f"""
-    Analyze the given Python code and extract:
+    Analyze the given  code and extract:
     - A list of function names along with the functions they call.
     - A list of class names along with their dependencies (parent classes, used functions).
 
     Code:
-    ```python
+   
     {full_text}
-    ```
+   
 
     Present the results **clearly** in this format:
 
@@ -390,6 +387,7 @@ def analyze_code():
         return jsonify({"error": "No code provided."}), 400
 
     code_text = data["code"]
+    print("Code:", code_text)
     selected_lang = data.get("language", "en")
 
     prompt = f"""
@@ -686,6 +684,44 @@ def push_to_repo():
     else:
         print("❌ Failed to update file:", put_resp.json())
         return jsonify({"error": f"Update failed: {put_resp.json()}"}), 500
+@app.route('/code_quality_insights', methods=['POST'])
+def code_quality_insights():
+    """
+    Analyze provided code to detect bad practices, anti-patterns, and offer improvement suggestions.
+    POST JSON: { "code": "<source code>" }
+    Returns HTML: Detailed insights rendered in HTML format.
+    """
+    data = request.get_json()
+    if not data or 'code' not in data:
+        return jsonify({"error": "No code provided."}), 400
+
+    code_text = data
+    # Construct prompt for AI analysis
+    prompt = f"""
+You are an expert code quality assistant.
+Given the following source code, identify any bad practices, anti-patterns, and suggest concrete improvements:
+
+```{code_text}```
+
+Provide a structured list of issues and recommendations.
+Return the insights in valid HTML format, using tags like <ul>, <li>, <strong>, <h2>, etc.
+"""
+
+    try:
+        # Invoke the language model
+        response = model.invoke(prompt)
+        if isinstance(response, AIMessage):
+            analysis_html = response.content.strip()
+        else:
+            analysis_html = str(response).strip()
+
+        print(analysis_html)
+        return jsonify({"analysis": analysis_html}) 
+
+    except Exception as e:
+        logging.error(f"Error in /code_quality_insights: {e}")
+        return jsonify({"error": f"Analysis failed: {str(e)}"}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True)
