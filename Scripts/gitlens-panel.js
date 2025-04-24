@@ -51,3 +51,14 @@ document.querySelector(".close-popup").addEventListener("click", () => {
 document.getElementById("close-comments").addEventListener("click", () => {
     document.getElementById("comment-popup").style.display = "none";
 });
+document.getElementById('close-btn').addEventListener('click', () => {
+    // Send message to parent to close the panel
+    const panel = document.getElementById('gitlens-panel-frame');
+    if (panel) {
+        panel.remove();
+        document.body.classList.remove('gitlens-enabled');
+        const button = document.getElementById('gitlens-toggle-button');
+        if (button) button.textContent = 'G';
+    }
+    window.parent.postMessage({ type: 'CLOSE_GITLENS_PANEL' }, '*');
+});
