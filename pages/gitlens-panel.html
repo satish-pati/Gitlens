@@ -10,6 +10,8 @@
     <div class="gitlens-panel">
         <div class="features-list">
             <!-- Repository Summary -->
+            <button id="close-btn">&times;</button> <!-- CLOSE BUTTON ADDED -->
+
             <div class="feature-card" data-feature="repo-summary">
                 <div class="feature-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -51,7 +53,7 @@
                 </div>
                 <div class="feature-content">
                     <h3>Dependency Visualization</h3>
-                    <p>Graphically maps function and class dependencies</p>
+                    <p>Graphically maps function and class dependencies, illustrating interactions, relationships, and data flow.</p>
                 </div>
             </div>
 
@@ -65,7 +67,7 @@
                 </div>
                 <div class="feature-content">
                     <h3>AI vs. Human Code Detection</h3>
-                    <p>Identifies AI-generated code using pattern analysis & ML models</p>
+                    <p>Identifies AI-generated and human written code  percentage using pattern analysis & ML models</p>
                 </div>
             </div>
 
@@ -78,10 +80,23 @@
                     </svg>
                 </div>
                 <div class="feature-content">
-                    <h3>Comment Generator</h3>
-                    <p>Automatically generates clear and descriptive code comments</p>
+                    <h3>Inline Documentation</h3>
+                    <p>Automatically generates Inline documentation by adding clear and descriptive code comments</p>
                 </div>
             </div>
+            <div class="feature-card" data-feature="pattern-generator">
+                <div class="feature-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                        <line x1="9" y1="10" x2="15" y2="10"></line>
+                    </svg>
+                </div>
+                <div class="feature-content">
+                    <h3>Code Quality Insights</h3>
+                    <p>Detects and highlights code smells, anti-patterns, and bad practices using AI, helping you improve maintainability and readability.</p>
+                </div>
+            </div>
+
         </div>
        
     </div>
@@ -138,6 +153,7 @@
     <script src="../scripts/pr_analysis.js" defer></script>
     <script src="../scripts/injectsumm.js" defer></script>
     <script src="../scripts/contentScripts.js" defer></script>
+    <script src="../scripts/patterns.js" defer></script>
 
 </body>
 </html> 
