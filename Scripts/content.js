@@ -1,12 +1,61 @@
-// Function to inject the GitLens panel
+// content.js
+
+function createGitLensToggleButton() {
+    // Avoid duplicating the button
+    if (document.getElementById('gitlens-toggle-button')) return;
+
+    const button = document.createElement('button');
+    button.id = 'gitlens-toggle-button';
+    button.textContent = 'G';
+    button.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    width: 40px;
+    height: 40px;
+    background-color: #1f1f1f;
+    color: white;
+    border: 1px solid #444;
+    border-radius: 50%;
+    font-size: 18px;
+    font-weight: bold;
+    text-align: center;
+    line-height: 40px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+`;
+
+button.onmouseenter = () => {
+    button.style.backgroundColor = '#333';
+    button.style.transform = 'scale(1.05)';
+};
+
+button.onmouseleave = () => {
+    button.style.backgroundColor = '#1f1f1f';
+    button.style.transform = 'scale(1)';
+};
+
+    button.onclick = () => {
+        const existingPanel = document.getElementById('gitlens-panel-frame');
+        if (existingPanel) {
+            existingPanel.remove();
+            document.body.classList.remove('gitlens-enabled');
+            button.textContent = 'Open GitLens';
+        } else {
+            injectGitLensPanel();
+            button.textContent = 'Close GitLens';
+        }
+    };
+
+    document.body.appendChild(button);
+}
+
 function injectGitLensPanel() {
-    // Remove any existing panel
-    removeGitLensPanel();
+    // Avoid injecting twice
+    if (document.getElementById('gitlens-panel-frame')) return;
 
-    // Add class to body for layout adjustments
-    document.body.classList.add('gitlens-enabled');
-
-    // Create iframe for the panel
     const iframe = document.createElement('iframe');
     iframe.id = 'gitlens-panel-frame';
     iframe.src = chrome.runtime.getURL('pages/gitlens-panel.html');
@@ -17,74 +66,34 @@ function injectGitLensPanel() {
         width: 35%;
         height: 100vh;
         border: none;
-        z-index: 100;
-        background: var(--primary-bg, #0d1117);
-        box-shadow: -2px 0 10px rgba(0, 0, 0, 0.3);
+        z-index: 10000;
+        background: #0d1117;
+        box-shadow: -2px 0 10px rgba(0,0,0,0.3);
     `;
 
-    // Add the iframe to the page
     document.body.appendChild(iframe);
 
-    // Adjust GitHub's layout
     const layout = document.querySelector('.Layout');
     if (layout) {
-        layout.style.cssText = `
-            width: 65% !important;
-    margin-right: 0 !important;
-        `;
+        layout.style.width = '65%';
+        layout.style.marginRight = '0';
     }
 
-    // Adjust header
-    const header = document.querySelector('.Header');
-    if (header) {
-        header.style.cssText = `
-            width: 65% !important;
-            left: 0 !important;
-        `;
-    }
+    document.body.classList.add('gitlens-enabled');
 }
 
-// Function to check if we're on a GitHub repository page
-function isGitHubRepoPage() {
-    return window.location.hostname === 'github.com' && 
-           document.querySelector('.repository-content') !== null;
+// Run this on GitHub pages
+if (window.location.hostname.includes("github.com")) {
+    createGitLensToggleButton();
 }
-
-// Function to remove the panel
-function removeGitLensPanel() {
-    const iframe = document.getElementById('gitlens-panel-frame');
-    if (iframe) {
-        iframe.remove();
-    }
-    document.body.classList.remove('gitlens-enabled');
-
-    // Reset GitHub's layout
-    const layout = document.querySelector('.Layout');
-    if (layout) {
-        layout.style.width = '';
-        layout.style.marginRight = '';
-    }
-}
-
-// Initialize the extension
-function initialize() {
-    if (isGitHubRepoPage()) {
-        injectGitLensPanel();
-    }
-}
-
-// Listen for page changes (for single-page app navigation)
-let lastUrl = location.href;
-new MutationObserver(() => {
-    const url = location.href;
-    if (url !== lastUrl) {
-        lastUrl = url;
-        removeGitLensPanel();
-        if (isGitHubRepoPage()) {
-            injectGitLensPanel();
+window.addEventListener('message', (event) => {
+    if (event.data?.type === 'CLOSE_GITLENS_PANEL') {
+        const panel = document.getElementById('gitlens-panel-frame');
+        if (panel) {
+            panel.remove();
+            document.body.classList.remove('gitlens-enabled');
+            const button = document.getElementById('gitlens-toggle-button');
+            if (button) button.textContent = 'Open GitLens';
         }
     }
-}).observe(document, { subtree: true, childList: true });
-
-// Initial load
-initialize();
+});
