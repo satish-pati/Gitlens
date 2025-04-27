@@ -39,7 +39,6 @@
 
       ],
       "js": [
-        "scripts/content.js",
         "scripts/injectcomment.js",
         "scripts/aihuman.js",
         "scripts/dependency.js",
@@ -48,7 +47,12 @@
         "scripts/contentScripts.js",
         "scripts/pr_analysis.js",
         "scripts/commitgen.js",
-        "scripts/pullreq.js"
+        "scripts/pullreq.js",
+        "scripts/content.js",
+        "scripts/patterns.js",
+        "scripts/issue.js",
+        "scripts/chat.js",
+         "scripts/repo.js"
       ],
       "run_at": "document_idle"
     }
