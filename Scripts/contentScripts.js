@@ -33,22 +33,43 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       
       sendResponse(codeText);
     }
-    if (message.action === "aihuman") {
-        let repoData = {};
-
-        if (!document.location.hostname.includes("github.com")) {
-            sendResponse({ error: "This is not a GitHub repository page." });
-            return true;
+    if (message.action === "fetchEditorText") {
+        const editorElement = document.getElementById("read-only-cursor-text-area");
+        if (!editorElement) {
+          analysisContent.innerText = "Editor text area not found.";
+          return;
         }
+      
+        const editorText = editorElement.innerText || editorElement.textContent || "";
+        if (!editorText.trim()) {
+          analysisContent.innerText = "No text found in the editor.";
+          return;
+        }
+      
+        sendResponse(editorText);
+      }
+    if (message.action === "chat") {
 
-        let repoNameElem = document.querySelector('strong[itemprop="name"] a');
-        repoData.name = repoNameElem ? repoNameElem.innerText.trim() : "Unknown Repo";
-        let descElem = document.querySelector('meta[name="description"]');
-        repoData.description = descElem ? descElem.content.trim() : "No description available.";
-        repoData.fullText = document.body.innerText;
+        const repoData = document.body.innerText;
 
         sendResponse(repoData);
     }
+    if (message.action === "aihuman") {
+      let repoData = {};
+
+      if (!document.location.hostname.includes("github.com")) {
+          sendResponse({ error: "This is not a GitHub repository page." });
+          return true;
+      }
+
+      let repoNameElem = document.querySelector('strong[itemprop="name"] a');
+      repoData.name = repoNameElem ? repoNameElem.innerText.trim() : "Unknown Repo";
+      let descElem = document.querySelector('meta[name="description"]');
+      repoData.description = descElem ? descElem.content.trim() : "No description available.";
+      repoData.fullText = document.body.innerText;
+
+      sendResponse(repoData);
+  }
     if (message.action === "pr_analysis") {
         const repoInfo = window.location.pathname.split("/");
         if (repoInfo.length < 3) {
@@ -71,7 +92,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
 
         
-
         sendResponse(repoInfo);
     }
     
