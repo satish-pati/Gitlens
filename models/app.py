@@ -13,6 +13,9 @@ from bs4 import BeautifulSoup
 import time
 from flask import make_response
 import base64
+from langchain_community.vectorstores import Pinecone
+from langchain_community.embeddings import HuggingFaceInferenceAPIEmbeddings
+from langchain_community.vectorstores import FAISS
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.chains import create_retrieval_chain, create_history_aware_retriever
@@ -38,6 +41,93 @@ model = ChatGroq(
     model="llama-3.3-70b-versatile", 
     temperature=0.5
 )
+GITHUB_TOKEN = None  # or set your token here (optional)
+
+def parse_github_file_url(url):
+    match = re.match(r"https://github\.com/([^/]+)/([^/]+)/blob/([^/]+)/(.*)", url)
+    if not match:
+        raise ValueError("Invalid GitHub file URL")
+    owner, repo, branch, filepath = match.groups()
+    return owner, repo, branch, filepath
+
+def get_commits_for_file(owner, repo, filepath):
+    api_url = f"https://api.github.com/repos/{owner}/{repo}/commits"
+    headers = {"Authorization": f"token {GITHUB_TOKEN}"} if GITHUB_TOKEN else {}
+
+    params = {
+        "path": filepath,
+        "per_page": 100
+    }
+
+    commits = []
+    while api_url:
+        response = requests.get(api_url, headers=headers, params=params)
+        response.raise_for_status()
+        commits.extend(response.json())
+
+        # Pagination
+        if 'next' in response.links:
+            api_url = response.links['next']['url']
+            params = {}
+        else:
+            break
+
+    return commits
+
+
+def analyze_commits(commits, file_path="Unknown"):
+    if not commits:
+        return {
+            "file": file_path,
+            "likely_owner": "N/A",
+            "ownership": {},
+            "contributions": {}
+        }
+
+    authors = {}
+    contributions = {}
+
+    for commit in commits:
+        author = commit.get("commit", {}).get("author", {}).get("name", "Unknown")
+        date = commit.get("commit", {}).get("author", {}).get("date", "Unknown")
+
+        authors[author] = authors.get(author, 0) + 1
+        contributions.setdefault(author, []).append(date)
+
+    likely_owner = max(authors.items(), key=lambda x: x[1])[0]
+
+    return {
+        "file": file_path,
+        "likely_owner": likely_owner,
+        "ownership": authors,
+        "contributions": contributions
+    }
+
+@app.route("/get_commit_insights")
+def get_commit_insights():
+    try:
+        repo_url = request.args.get("repo_url")
+        if not repo_url:
+            return jsonify({"error": "Missing repo_url parameter"}), 400
+
+        owner, repo, branch, filepath = parse_github_file_url(repo_url)
+        print("owner,repo,branch:",owner,repo,branch)
+        if not all([owner, repo, filepath]):
+            return jsonify({"error": "Failed to parse URL"}), 400
+
+        commits = get_commits_for_file(owner, repo, filepath)
+        #print("Commits:", commits)
+        if not commits:
+            return jsonify({"error": "No commits found for file"}), 404
+       
+        commit_data = analyze_commits(commits,filepath)
+        print("Commit Data:", commit_data)
+        return jsonify(commit_data)
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/')
 def index():
@@ -48,21 +138,14 @@ def generate_commit_message():
     data = request.get_json()
     if not data or "diff" not in data:
         return jsonify({"error": "No diff data provided."}), 400
-
     git_diff = data["diff"]
-
     prompt = f"""
 You are an expert Git assistant.
 
 Based on the following Git diff, write a clear, concise, and conventional commit message. 
 Structure the message in imperative tone (e.g., "Fix bug", "Add feature"), and include a short subject and optionally a body if needed.
-
 Git Diff:
 {git_diff}
-
-css
-Copy
-Edit
 Return ONLY the commit message, no explanations or formatting.
 """
 
@@ -108,7 +191,6 @@ Return the analysis in HTML format where:
   - Make the output **clean and visually appealing** for display in a modal or rich text viewer.
     """
 
-
     try:
         summary = model.invoke(prompt)
         if isinstance(summary, AIMessage):
@@ -148,13 +230,30 @@ def detect_ai_code():
     full_text = data
     print(full_text)
     prompt = f"""
+You are a highly skilled code analysis AI specialized in detecting AI-generated code.
 
-    Full Page Content:
-    {full_text}
+Analyze the following complete source content carefully:
+--------
+{full_text}
+--------
 
-    Analyze the provided code and determine what percentage is likely AI-generated vs. human-written code.
-    Provide an estimate in the format: AI Code: X% | Human Code: Y%
-    """
+Evaluate and consider the following factors in your analysis:
+- Consistency and style of code structure
+- Commenting style, presence/absence of meaningful comments
+- Variable naming patterns and repetition
+- Code formatting, indentation regularity
+- Common AI code generation artifacts (boilerplate code, redundant logic, unnecessary complexity, overly clean formatting)
+- Signs of human-like imperfections (irregularities, inconsistent style, creative but non-optimal solutions)
+
+Based on these aspects, estimate and output:
+
+AI Code Likelihood: X%  
+Human Code Likelihood: Y%  
+
+Ensure that X% + Y% = 100%.  
+Be as objective and realistic as possible without overestimating either side.  
+Respond ONLY in the above format, without any additional explanation.
+"""
 
     try:
         response = model.invoke(prompt)
@@ -692,8 +791,7 @@ def code_quality_insights():
     Returns HTML: Detailed insights rendered in HTML format.
     """
     data = request.get_json()
-    if not data or 'code' not in data:
-        return jsonify({"error": "No code provided."}), 400
+    
 
     code_text = data
     # Construct prompt for AI analysis
@@ -721,7 +819,124 @@ Return the insights in valid HTML format, using tags like <ul>, <li>, <strong>, 
     except Exception as e:
         logging.error(f"Error in /code_quality_insights: {e}")
         return jsonify({"error": f"Analysis failed: {str(e)}"}), 500
+    
+GROQ_API_KEY = "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"
+ASTRA_DB_API_ENDPOINT ="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"
+ASTRA_DB_APPLICATION_TOKEN ="AstraCS:BRtrSNZAeQZDsHCcPEYAGdWX:27b10125049889c502c4dd000fff56fed12a0bc8ad3b7c39d72405e6b4bc2811"
+ASTRA_DB_KEYSPACE = "New"
+HF_TOKEN = "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"
+PINECONE_API_KEY = "pcsk_3Rs63F_GpiWFWMHZG4xbKV3DaiQfJzZXnVXnTKBYXpvRmeJR7iriha5yBmE74DsL3N5JaY"
+PINECONE_ENVIRONMENT = "us-east-1"  # e.g., "us-east1-gcp"
+PINECONE_INDEX_NAME = "new"
 
+
+store = {}
+
+def get_session_history(session_id: str, max_history_length=5):
+    if session_id not in store:
+        store[session_id] = ChatMessageHistory()
+    else:
+        store[session_id].messages = store[session_id].messages[-max_history_length:]
+    return store[session_id]
+
+# --- Data ingestion function ---
+def data_ingestion(page_content):
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1000,
+        chunk_overlap=100,
+        length_function=len
+    )
+    chunks = splitter.split_text(page_content)
+
+    # 2) Wrap each chunk in a LangChain Document
+    docs = [Document(page_content=chunk) for chunk in chunks]
+
+    # 3) Build a fresh FAISS vectorstore *in memory*
+    vstore = FAISS.from_documents(docs, embeddings)
+    return vstore
+
+# --- Create chain ---
+def generate_chain_from_vectorstore(vectorstore):
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+
+    retriever_prompt = (
+        "Given a chat history and the latest user question which might reference context in the chat history, "
+        "formulate a standalone question. Do NOT answer the question, just reformulate it if needed."
+    )
+
+    contextualize_q_prompt = ChatPromptTemplate.from_messages([
+        ("system", retriever_prompt),
+        MessagesPlaceholder(variable_name="chat_history"),
+        ("human", "{input}")
+    ])
+
+    history_aware_retriever = create_history_aware_retriever(model, retriever, contextualize_q_prompt)
+
+    MEDICAL_BOT_TEMPLATE = """
+   You are a helpful assistant built into a browser extension for GitHub. 
+You specialize in answering questions about the current GitHub page the user is viewing. 
+Use the provided context to answer accurately.
+
+The user might ask about code functionality, documentation, README details, or any technical aspect related to the page content. 
+If the question refers to something not in the context, let the user know.
+
+CONTEXT:
+{context}
+
+QUESTION: {input}
+
+YOUR ANSWER:
+    """
+
+    qa_prompt = ChatPromptTemplate.from_messages([
+        ("system", MEDICAL_BOT_TEMPLATE),
+        MessagesPlaceholder(variable_name="chat_history"),
+        ("human", "{input}")
+    ])
+
+    question_answer_chain = create_stuff_documents_chain(model, qa_prompt)
+    chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
+
+    return RunnableWithMessageHistory(
+        chain,
+        get_session_history,
+        input_messages_key="input",
+        history_messages_key="chat_history",
+        output_messages_key="answer"
+    )
+
+# --- Endpoint ---
+@app.route("/ask_question", methods=["POST"])
+def ask_question():
+    try:
+        data = request.get_json()
+        question = data.get("question", "")
+        page_content = data.get("content", "")
+        session_id = data.get("session_id", "default")
+
+        if not question:
+            return jsonify({"error": "Missing question"}), 400
+        if not page_content:
+            return jsonify({"error": "Missing page content"}), 400
+
+        # Ingest new page content
+        vectorstore = data_ingestion(page_content)
+
+        # Build the chain
+        chain = generate_chain_from_vectorstore(vectorstore)
+
+        # Invoke
+        response = chain.invoke(
+            {"input": question},
+            config={"configurable": {"session_id": session_id}}
+        )["answer"]
+
+        return jsonify({"answer": response}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
+
+
