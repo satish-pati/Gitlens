@@ -42,10 +42,36 @@ console.log("✅ contentScripts.js LOADED");
     // Define available languages (expand as needed)
     const LANGUAGES = {
       "en": "English",
-      "hi": "Hindi",
-      "te": "telugu",
-      "ta": "Tamil",
-      "ml": "Malayalam"
+  "hi": "Hindi",
+  "te": "Telugu",
+  "ta": "Tamil",
+  "ml": "Malayalam",
+  "kn": "Kannada",
+  "mr": "Marathi",
+  "gu": "Gujarati",
+  "pa": "Punjabi",
+  "bn": "Bengali",
+  "or": "Odia",
+  "ur": "Urdu",
+  "as": "Assamese",
+  "kok": "Konkani",
+  "ne": "Nepali",
+  "si": "Sinhala",
+  "fr": "French",
+  "de": "German",
+  "es": "Spanish",
+  "it": "Italian",
+  "pt": "Portuguese",
+  "zh": "Chinese",
+  "ja": "Japanese",
+  "ko": "Korean",
+  "ru": "Russian",
+  "ar": "Arabic",
+  "tr": "Turkish",
+  "vi": "Vietnamese",
+  "th": "Thai",
+  "sw": "Swahili"
+      
     };
     for (const code in LANGUAGES) {
       let option = document.createElement("option");
@@ -124,7 +150,7 @@ console.log("✅ contentScripts.js LOADED");
    function getGitHubRepoDetailsFromTab(callback) {
     chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
         const activeTab = tabs[0];
-        chrome.tabs.sendMessage(activeTab.id, { action: "codesummarize" }, function(response) {
+        chrome.tabs.sendMessage(activeTab.id, { action: "fetchEditorText" }, function(response) {
             callback(response);
         });
     });
