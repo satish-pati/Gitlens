@@ -39,20 +39,16 @@
 
       ],
       "js": [
+        "scripts/content.js",
         "scripts/injectcomment.js",
-        "scripts/aihuman.js",
+        "scripts/AiHumanPercentage.js",
         "scripts/dependency.js",
         "scripts/injectcodesumm.js",
         "scripts/gitlens-panel.js",
         "scripts/contentScripts.js",
         "scripts/pr_analysis.js",
         "scripts/commitgen.js",
-        "scripts/pullreq.js",
-        "scripts/content.js",
-        "scripts/patterns.js",
-        "scripts/issue.js",
-        "scripts/chat.js",
-         "scripts/repo.js"
+        "scripts/contribution_summary.js"
       ],
       "run_at": "document_idle"
     }
