@@ -39,6 +39,7 @@
 
       ],
       "js": [
+        "scripts/checkLogin.js",
         "scripts/content.js",
         "scripts/injectcomment.js",
         "scripts/AiHumanPercentage.js",
