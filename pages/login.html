@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>GitLens Authentication</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      padding: 20px;
+      background: #f6f8fa;
+      color: #24292e;
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .auth-container {
+      max-width: 320px;
+      margin: 0 auto;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #d1d5da;
+      border-radius: 6px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      background: #2ea44f;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      margin-top: 5px;
+    }
+    button:hover {
+      background: #238636;
+    }
+    .toggle-form {
+      text-align: center;
+      margin-top: 15px;
+      font-size: 14px;
+    }
+    .toggle-form a {
+      color: #2ea44f;
+      cursor: pointer;
+      text-decoration: none;
+    }
+  </style>
+  <script defer src="../scripts/login.js"></script>
+</head>
+<body>
+  <div class="auth-container">
+    <div id="login-form">
+      <h2>Login to GitLens</h2>
+      <form id="loginForm">
+        <div class="form-group">
+          <input type="email" id="email" placeholder="Email" required>
+        </div>
+        <div class="form-group">
+          <input type="password" id="password" placeholder="Password" required>
+        </div>
+        <button type="submit">Login</button>
+      </form>
+      <div class="toggle-form">
+        Don't have an account? <a id="switch-to-signup">Sign up</a>
+      </div>
+    </div>
+    
+    <div id="signup-form" style="display: none;">
+      <h2>Create GitLens Account</h2>
+      <form id="signupForm">
+        <div class="form-group">
+          <input type="text" id="signup-name" placeholder="Full Name" required>
+        </div>
+        <div class="form-group">
+          <input type="email" id="signup-email" placeholder="Email" required>
+        </div>
+        <div class="form-group">
+          <input type="password" id="signup-password" placeholder="Password" required>
+        </div>
+        <button type="submit">Sign Up</button>
+      </form>
+      <div class="toggle-form">
+        Already have an account? <a id="switch-to-login">Login</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
