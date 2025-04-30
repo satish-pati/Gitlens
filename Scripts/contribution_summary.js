@@ -60,27 +60,8 @@ function createContributionCard(filePath, data) {
       <div class="info-line">👤 <strong>${data.lastEditor}</strong> — 🔁 ${data.edits} edits ${hotspot}</div>
       <div class="info-line">🕑 Last edited: ${data.lastEditedDaysAgo} days ago</div>
       <div class="info-line">👑 Owner: ${data.owner.username} (${data.owner.percentage}%)</div>
-      <button class="code-summary-btn">Show Code Summary</button> <!-- Added a button for code summary -->
-      <div class="code-summary-detail" style="display: none;">
-        <p>Details about the code will go here.</p>
-      </div>
     </div>
   `;
-
-  // Add event listener to the button to show/hide the code summary
-  const summaryBtn = card.querySelector(".code-summary-btn");
-  const summaryDetail = card.querySelector(".code-summary-detail");
-
-  summaryBtn.addEventListener("click", () => {
-    // Toggle visibility of code summary
-    if (summaryDetail.style.display === "none") {
-      summaryDetail.style.display = "block";
-      summaryBtn.textContent = "Hide Code Summary"; // Change button text
-    } else {
-      summaryDetail.style.display = "none";
-      summaryBtn.textContent = "Show Code Summary"; // Change button text
-    }
-  });
 
   return card;
 }
@@ -155,26 +136,6 @@ function injectStyles() {
       margin-left: 6px;
       border-radius: 5px;
       font-size: 12px;
-    }
-    .code-summary-btn {
-      margin-top: 10px;
-      padding: 8px 16px;
-      font-size: 14px;
-      background-color: #0366d6;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    .code-summary-btn:hover {
-      background-color: #004c8c;
-    }
-    .code-summary-detail {
-      margin-top: 10px;
-      padding: 10px;
-      background: #f1f1f1;
-      border-radius: 4px;
-      font-size: 13px;
     }
     @keyframes fadeIn {
       to {
