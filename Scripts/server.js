@@ -12,12 +12,10 @@ app.use(express.json());
 
 // PostgreSQL connection
 const pool = new Pool({
-  user: 'postgres',
-  host: 'localhost',
-  database: 'gitlens',
-  password: 'Tejas.6710', // replace with correct password
-  port: 5432,
+  connectionString: 'postgres://gitlens_8bdi_user:iJASx9tS2PxQQ8EI3TLvaSoQziSceAB6@dpg-d0941iqdbo4c73eguhig-a.oregon-postgres.render.com/gitlens_8bdi?sslmode=require',
 });
+
+module.exports = pool;
 
 // Login Route
 app.post('/login', async (req, res) => {
